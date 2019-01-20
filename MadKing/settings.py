@@ -25,7 +25,7 @@ SECRET_KEY = '9$+8b5y&ev($8mvem9q@vs4q3avhqqh%ou$*hulk4sgyn8korl'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*',]
 
 
 # Application definition
@@ -120,3 +120,22 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/2.1/howto/static-files/
 
 STATIC_URL = '/static/'
+
+STATICFILES_DIRS = (
+    "%s/%s" % (BASE_DIR, "statics"),
+)
+
+
+AUTH_USER_MODEL = 'assets.UserProfile'
+
+TOKEN_TIMEOUT = 120
+
+LOGIN_URL = '/login/'
+
+# REST_FRAMEWORK = {
+#     # Use Django's standard `django.contrib.auth` permissions,
+#     # or allow read-only access for unauthenticated users.
+#     'DEFAULT_PERMISSION_CLASSES': [
+#         'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
+#     ]
+# }

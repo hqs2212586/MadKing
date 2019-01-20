@@ -1,16 +1,22 @@
 # -*- coding:utf-8 -*-
 
 from django.db import models
-from django.contrib.auth.models import User
+# from django.contrib.auth.models import User
+from assets.myauth import UserProfile
 
 # Create your models here.
 
-class UserProfile(User):
-
-    name = models.CharField("姓名", max_length=32)
-
-    def __str__(self):
-        return self.name
+# class UserProfile(User):
+#     """用户信息"""
+#     name = models.CharField("姓名", max_length=32)
+#
+#     def __str__(self):
+#         return self.name
+#
+#     class Meta:
+#         super(User.Meta)
+#         verbose_name = "用户"
+#         verbose_name_plural = "用户"
 
 
 class Asset(models.Model):
@@ -35,28 +41,39 @@ class Asset(models.Model):
 
     # sn\manufactory\management_ip都是公共信息
     sn = models.CharField(u'资产SN号', max_length=128, unique=True)  # sn号唯一
-    manufactory = models.ForeignKey('Manufactory', verbose_name=u'制造商', null=True, blank=True)
+    manufactory = models.ForeignKey('Manufactory', verbose_name=u'制造商', null=True, blank=True, on_delete=models.CASCADE)
     management_ip = models.GenericIPAddressField(u'管理IP', blank=True, null=True)  # 管理IP（带外）
     # model = models.ForeignKey('ProductModel', verbose_name=u'型号')
     # model = models.CharField(u'型号',max_length=128,null=True, blank=True )
 
     # blank字段为True则该字段允许不填
     # null字段为True则django用NULL在数据库存储空值
-    contract = models.ForeignKey('Contract', verbose_name=u'合同', null=True, blank=True)  # 很多机器属于一个合同
+    contract = models.ForeignKey('Contract', verbose_name=u'合同', null=True, blank=True, on_delete=models.CASCADE)  # 很多机器属于一个合同
     trade_date = models.DateField(u'购买时间', null=True, blank=True)
     expire_date = models.DateField(u'过保修期', null=True, blank=True)
     price = models.FloatField(u'价格', null=True, blank=True)  # 用于成本核算
-    business_unit = models.ForeignKey('BusinessUnit', verbose_name=u'所属业务线', null=True, blank=True)
+    business_unit = models.ForeignKey('BusinessUnit', verbose_name=u'所属业务线', null=True, blank=True, on_delete=models.CASCADE)
+    # tags：多对多
     tags = models.ManyToManyField('Tag', blank=True)
-    idc = models.ForeignKey('IDC', verbose_name=u'IDC机房', null=True, blank=True)
-    admin = models.ForeignKey('UserProfile', verbose_name=u'资产管理员', null=True, blank=True)
+    idc = models.ForeignKey('IDC', verbose_name=u'IDC机房', null=True, blank=True, on_delete=models.CASCADE)
+    admin = models.ForeignKey('UserProfile', verbose_name=u'资产管理员', null=True, blank=True, on_delete=models.CASCADE)
 
+    status_choices = (
+        (0, '在线'),
+        (1, '已下线'),
+        (2, '未知'),
+        (3, '故障'),
+        (4, '备用'),
+    )
+    status = models.SmallIntegerField(choices=status_choices, default=0)
+    # status = models.ForeignKey('Status', verbose_name = u'设备状态',default=1)
+    # Configuration = models.OneToOneField('Configuration',verbose_name='配置管理',blank=True,null=True)
     memo = models.TextField(u'备注', null=True, blank=True)
     create_date = models.DateTimeField(blank=True, auto_now_add=True)   # auto_now_add 自动创建
     update_date = models.DateTimeField(blank=True, auto_now=True)    # auto_now 更新自动变化
 
     class Meta:
-        verbose_name = '资产总表'
+        verbose_name = '资产总表'   # 中文显示
         verbose_name_plural = "资产总表"
 
     def __str__(self):
@@ -65,7 +82,7 @@ class Asset(models.Model):
 
 class Server(models.Model):
     """服务器信息"""
-    asset = models.OneToOneField(Asset)
+    asset = models.OneToOneField(Asset, on_delete=models.CASCADE)
     sub_asset_type_choices = {
         (0, "PC服务器"),   # 0,1,2介绍空间
         (1, "刀片服务器"),
@@ -77,7 +94,7 @@ class Server(models.Model):
     }
     created_by = models.CharField(choices=created_by_choices, max_length=32,
                                   default='auto')   # auto: auto created,   manual:created manually
-    hosted_on = models.ForeignKey('self', related_name='hosted_on_server', blank=True, null=True)  # for virtual server
+    hosted_on = models.ForeignKey('self', related_name='hosted_on_server', blank=True, null=True, on_delete=models.CASCADE)  # for virtual server
 
     model = models.CharField(verbose_name=u'型号', max_length=128, null=True, blank=True)
     # 若有多个CPU，型号应该都是一致的，故没做ForeignKey
@@ -102,7 +119,7 @@ class Server(models.Model):
 
 class SecurityDevice(models.Model):
     """安全设备"""
-    asset = models.OneToOneField('Asset')
+    asset = models.OneToOneField('Asset', on_delete=models.CASCADE)
     sub_asset_type_choices = (
         (0, '防火墙'),
         (1, '入侵检测设备'),
@@ -117,7 +134,7 @@ class SecurityDevice(models.Model):
 
 class NetworkDevice(models.Model):
     """网络设备"""
-    asset = models.OneToOneField('Asset')
+    asset = models.OneToOneField('Asset', on_delete=models.CASCADE)
     sub_asset_type_choices = (
         (0, '路由器'),
         (1, '交换机'),
@@ -159,14 +176,13 @@ class Software(models.Model):
     # #version = models.CharField(u'版本号', max_length=64,help_text=u'2.6.32-431.3.1.el6.x86_64' )
 
 
-
 class Disk(models.Model):
     """存储硬盘信息"""
     # ForeignKey.on_delete：当一个model对象的ForeignKey关联的对象被删除时，默认情况下此对象也会一起被级联删除的。
     asset = models.ForeignKey('Asset', on_delete=models.CASCADE)  # 统一从asset调用
     sn = models.CharField(u'SN号', max_length=128, blank=True, null=True)
     slot = models.CharField(u'插槽位', max_length=64)
-    # manufactory = models.CharField(u'制造商', max_length=64, blank=True, null=True)  # 制造商信息直接存在型号中
+    manufactory = models.CharField(u'制造商', max_length=64, blank=True, null=True)  # 制造商信息直接存在型号中
     model = models.CharField(u'磁盘型号', max_length=128, blank=True, null=True)
     capacity = models.FloatField(u'磁盘容量GB')
     disk_iface_choice = (
@@ -196,7 +212,7 @@ class Disk(models.Model):
 
 class NIC(models.Model):
     """存储网卡信息"""
-    asset = models.ForeignKey('Asset')  # 存储各种资产的网卡，不区分服务器、PC等
+    asset = models.ForeignKey('Asset', on_delete=models.CASCADE)  # 存储各种资产的网卡，不区分服务器、PC等
     # server = models.ForeignKey('Server')
     name = models.CharField(u'网卡名', max_length=64, blank=True, null=True)
     sn = models.CharField(u'SN号', max_length=128, blank=True, null=True)
@@ -225,7 +241,7 @@ class NIC(models.Model):
 
 class RAM(models.Model):
     """内存信息"""
-    asset = models.ForeignKey('Asset')
+    asset = models.ForeignKey('Asset', on_delete=models.CASCADE)
     sn = models.CharField(u'SN号', max_length=128, blank=True, null=True)
     model = models.CharField(u'内存型号', max_length=128)
     slot = models.CharField(u'插槽', max_length=64)
@@ -242,13 +258,13 @@ class RAM(models.Model):
         unique_together = ("asset", "slot")
 
     def __str__(self):
-        return '%s:%s' % (self.asset_id, self.slot, self.capacity)
+        return '%s:%s:%s' % (self.asset_id, self.slot, self.capacity)
 
 
 class CPU(models.Model):
     """CPU信息"""
     # 一个机器的CPU型号必须完全一样
-    asset = models.OneToOneField("Asset")   # 一台机器对应一种CPU，不需要做多对多的对应
+    asset = models.OneToOneField("Asset", on_delete=models.CASCADE)   # 一台机器对应一种CPU，不需要做多对多的对应
     cpu_model = models.CharField(u'CPU型号', max_length=128, blank=True)
     cpu_count = models.SmallIntegerField(u'物理CPU个数')
     cpu_core_count = models.SmallIntegerField(u'cpu核数')
@@ -267,7 +283,7 @@ class CPU(models.Model):
 
 class RaidAdaptor(models.Model):
     """raid卡信息"""
-    asset = models.ForeignKey('Asset')    # 关联资产,多个raid卡对应一个机器
+    asset = models.ForeignKey('Asset', on_delete=models.CASCADE)    # 关联资产,多个raid卡对应一个机器
     sn = models.CharField(u'SN号', max_length=128, blank=True, null=True)
     slot = models.CharField(u'插口', max_length=64)
     model = models.CharField(u'型号', max_length=64, blank=True, null=True)
@@ -297,7 +313,7 @@ class Manufactory(models.Model):
 
 class BusinessUnit(models.Model):
     """业务线"""
-    parent_unit = models.ForeignKey('self', null=True, blank=True)
+    parent_unit = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE)
     name = models.CharField(max_length=64, unique=True)
 
     def __str__(self):
@@ -389,7 +405,7 @@ class EventLog(models.Model):
 
 
 class NewAssetApprovalZone(models.Model):
-    """新资产待审批区"""
+    """新资产待审批区：客户端的数据会暂时保存在这个临时表里"""
     sn = models.CharField(u'资产SN号', max_length=128, unique=True)
     asset_type_choices = (
         ('server', u'服务器'),
@@ -401,8 +417,8 @@ class NewAssetApprovalZone(models.Model):
         ('software', u'无线AP'),
         ('others', u'其他类')
     )
-    asset_type = models.CharField(choices=asset_type_choices, max_length=64, blank=True)
-    manufactory = models.CharField(max_length=64, blank=True, null=True)
+    asset_type = models.CharField(choices=asset_type_choices, max_length=64, blank=True)  # 资产类型
+    manufactory = models.CharField(max_length=64, blank=True, null=True)  # 厂商
     model = models.CharField(max_length=128, blank=True, null=True)
     ram_size = models.IntegerField(blank=True, null=True)
     cpu_model = models.CharField(max_length=128, blank=True, null=True)
@@ -411,10 +427,11 @@ class NewAssetApprovalZone(models.Model):
     os_distribution = models.CharField(max_length=64, blank=True, null=True)
     os_type = models.CharField(max_length=64, blank=True, null=True)
     os_release = models.CharField(max_length=64, blank=True, null=True)
-    data = models.TextField(u'资产数据')
+
+    data = models.TextField(u'资产数据')    # 客户端收集的资产数据
     date = models.DateTimeField(u'汇报日期', auto_now_add=True)
-    approved = models.BooleanField(u'已批准', default=False)
-    approved_by = models.ForeignKey('UserProfile', verbose_name=u'批准人', blank=True, null=True)
+    approved = models.BooleanField(u'已批准', default=False)   # 用户审批，默认是未批准
+    approved_by = models.ForeignKey('UserProfile', verbose_name=u'批准人', blank=True, null=True, on_delete=models.CASCADE)
     approved_date = models.DateTimeField(u'批准日期', blank=True, null=True)
 
     def __str__(self):

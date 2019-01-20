@@ -13,9 +13,17 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from django.conf.urls import url, include
 from django.contrib import admin
-from django.urls import path
+from assets import rest_urls,urls as asset_urls
+from MadKing import views
+
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    url(r'^admin/', admin.site.urls),
+    url(r'^api/', include(rest_urls)),
+    url(r'^asset/',include(asset_urls)),
+    url(r'^$',views.index, name="dashboard"),
+    url(r'^login/$', views.acc_login, name='login')
 ]
+
